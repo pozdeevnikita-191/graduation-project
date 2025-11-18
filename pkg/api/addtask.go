@@ -9,6 +9,15 @@ import (
 	"time"
 )
 
+//the writeJson function encodes data into json format
+func writeJson(w http.ResponseWriter, data any, code int) {
+    w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+    if err := json.NewEncoder(w).Encode(data); err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
+		w.WriteHeader(code)
+}
+
 // The addTaskHandler handler adds a new task
 func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	var task Task
@@ -16,22 +25,22 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err := buf.ReadFrom(r.Body)
 	if err != nil {
-		writeJson(w, map[string]string{"error": err.Error()})
+		writeJson(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 		return
 	}
 
 	if err = json.Unmarshal(buf.Bytes(), &task); err != nil {
-		writeJson(w, map[string]string{"error": err.Error()})
+		writeJson(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 		return
 	}
 
 	if task.Title == "" {
-		writeJson(w, map[string]string{"error": "title is required"})
+		writeJson(w, map[string]string{"error": "title is required"}, http.StatusBadRequest)
 		return
 	}
 	if task.Date != "" {
-		if _, err := time.Parse("20060102", task.Date); err != nil {
-			writeJson(w, map[string]string{"error": "invalid date format, expected YYYYMMDD"})
+		if _, err := time.Parse(fdate, task.Date); err != nil {
+			writeJson(w, map[string]string{"error": "invalid date format, expected YYYYMMDD"}, http.StatusBadRequest)
 			return
 		}
 	}
@@ -45,19 +54,17 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = checkDate(dbTask)
 	if err != nil {
-		writeJson(w, map[string]string{"error": err.Error()})
+		writeJson(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 		return
 	}
 
 	id, err := db.AddTask(dbTask)
 	if err != nil {
-		writeJson(w, map[string]string{"error": "failed to add task"})
+		writeJson(w, map[string]string{"error": "failed to add task"}, http.StatusBadRequest)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"id": id})
+	writeJson(w, map[string]string{"id": id}, http.StatusCreated)
 }
 
 // the checkDate function checks the date for relevance
@@ -91,11 +98,4 @@ func checkDate(task *db.Task) error {
 	return nil
 }
 
-//the writeJson function encodes data into json format
-func writeJson(w http.ResponseWriter, data any) {
-    w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-    // Добавьте обработку ошибок
-    if err := json.NewEncoder(w).Encode(data); err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-    }
-}
+

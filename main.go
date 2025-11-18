@@ -11,11 +11,15 @@ import (
 )
 
 func main() {
-	fmt.Println("Сервер запущен")
+	fmt.Println("Server started. Port: 7540")
+
 	err := db.Init("scheduler.db")
 	if err != nil {
 		log.Fatal("failed to initialize the DB package:", err)
 	}
+
+	defer db.DB.Close()  
+	
 
 	http.Handle("/", http.FileServer(http.Dir("web")))
 	if err := server.Run(); err != nil {
