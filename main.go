@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Server started. Port: 7540")
+	fmt.Println("Server started. Port: 7540.")
 
 	err := db.Init("scheduler.db")
 	if err != nil {
