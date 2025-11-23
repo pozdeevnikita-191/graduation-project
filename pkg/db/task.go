@@ -1,8 +1,9 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
-	"sort"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -21,7 +22,7 @@ func AddTask(task *Task) (string, error) {
 	var id int64
 
 	query := `INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?)`
-	res, err := db.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
+	res, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat)
 	if err != nil {
 		return "", err
 	}
@@ -36,7 +37,7 @@ func AddTask(task *Task) (string, error) {
 
 // Tasks returns a list of tasks from the database
 func Tasks(limit int) ([]*Task, error) {
-	rows, err := db.Query("SELECT id, date, title, comment, repeat FROM scheduler")
+	rows, err := DB.Query("SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT ?", limit)
 	if err != nil {
 		return []*Task{}, err
 	}
@@ -50,7 +51,7 @@ func Tasks(limit int) ([]*Task, error) {
 		if err != nil {
 			return []*Task{}, err
 		}
-		
+
 		res = append(res, &t)
 	}
 
@@ -58,23 +59,17 @@ func Tasks(limit int) ([]*Task, error) {
 		return nil, err
 	}
 
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].Date < res[j].Date
-	})
-	if limit == 0 || limit > len(res) {
-		return res, nil
-	}
-	return res[:limit], nil
+	return res, nil
 }
 
 // GetTask returns a task by its ID.
 func GetTask(id int64) (*Task, error) {
 	t := &Task{}
-	row := db.QueryRow(`SELECT id, date, title, comment, repeat 
+	row := DB.QueryRow(`SELECT id, date, title, comment, repeat 
 	FROM scheduler WHERE id = ?`, id)
 	err := row.Scan(&t.ID, &t.Date, &t.Title, &t.Comment, &t.Repeat)
 	if err != nil {
-		return nil, fmt.Errorf("задача не найдена")
+		return nil, fmt.Errorf("task not found")
 	}
 
 	return t, nil
@@ -86,7 +81,7 @@ func UpdateTask(task *Task) error {
 	query := `UPDATE scheduler SET 
 		date = ?, title = ?, comment = ?, repeat = ? 
 		WHERE id = ?`
-	res, err := db.Exec(query, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
+	res, err := DB.Exec(query, task.Date, task.Title, task.Comment, task.Repeat, task.ID)
 	if err != nil {
 		return err
 	}
@@ -103,7 +98,7 @@ func UpdateTask(task *Task) error {
 
 // DeleteTask deletes a task by its ID
 func DeleteTask(id int64) error {
-	_, err := db.Exec("DELETE FROM scheduler WHERE id = ?", id)
+	_, err := DB.Exec("DELETE FROM scheduler WHERE id = ?", id)
 	if err != nil {
 		return err
 	}
@@ -114,7 +109,7 @@ func DeleteTask(id int64) error {
 func UpdateDate(next string, id int64) error {
 	query := `UPDATE scheduler SET 
 		date = ? WHERE id = ?`
-	res, err := db.Exec(query, next, id)
+	res, err := DB.Exec(query, next, id)
 	if err != nil {
 		return err
 	}
@@ -129,4 +124,50 @@ func UpdateDate(next string, id int64) error {
 	}
 
 	return nil
+}
+
+//SEARCH
+
+// Tasks returns a list of tasks from the database
+func SearchTasks(search string, limit int) ([]*Task, error) {
+	var rows *sql.Rows
+	var err error
+
+	date, err := time.Parse("02.01.2006", search)
+	if err == nil{
+		search = date.Format("20060102")
+	}
+
+	like := "%" + search + "%"
+
+	if search == "" {
+		rows, err = DB.Query("SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT ?", limit)
+		if err != nil {
+			return []*Task{}, err
+		}
+	} else {
+		rows, err = DB.Query("SELECT id, date, title, comment, repeat FROM scheduler WHERE title LIKE ? OR comment LIKE ? OR date LIKE ? ORDER BY date LIMIT ?", like, like, like, limit)
+		if err != nil {
+			return []*Task{}, err
+		}
+	}
+
+	defer rows.Close()
+
+	res := []*Task{}
+	for rows.Next() {
+		t := Task{}
+		err := rows.Scan(&t.ID, &t.Date, &t.Title, &t.Comment, &t.Repeat)
+		if err != nil {
+			return []*Task{}, err
+		}
+
+		res = append(res, &t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }

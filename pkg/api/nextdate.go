@@ -176,10 +176,14 @@ func nextMonth(start, now time.Time, parts []string) (string, error) {
 
 // A handler nextDayHandler that accepts a request in the format: "/api/nextdate?now=<20060102>&date=<20060102>&repeat=<правило>" and returns the date of the next task execution in the format: "20060102"
 func nextDayHandler(w http.ResponseWriter, r *http.Request) {
-	// парсим
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+
 	now, err := time.Parse(fdate, r.FormValue("now"))
 	if err != nil {
-		writeJson(w, map[string]string{"error": err.Error()})
+		writeJson(w, map[string]string{"error": err.Error()}, http.StatusBadRequest)
 		return
 	}
 
@@ -188,7 +192,7 @@ func nextDayHandler(w http.ResponseWriter, r *http.Request) {
 
 	dateRes, err := NextDate(now, date, repeat)
 	if err != nil {
-		writeJson(w, map[string]string{"error": err.Error()})
+		writeJson(w, map[string]string{"error": err.Error()}, http.StatusFailedDependency)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
