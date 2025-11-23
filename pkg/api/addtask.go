@@ -9,13 +9,17 @@ import (
 	"time"
 )
 
-//the writeJson function encodes data into json format
+// the writeJson function encodes data into json format
 func writeJson(w http.ResponseWriter, data any, code int) {
-    w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-    if err := json.NewEncoder(w).Encode(data); err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-    }
-		w.WriteHeader(code)
+	if w.Header().Get("Content-Type") == "" {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	}
+
+	w.WriteHeader(code)
+
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // The addTaskHandler handler adds a new task
@@ -97,5 +101,3 @@ func checkDate(task *db.Task) error {
 	}
 	return nil
 }
-
-

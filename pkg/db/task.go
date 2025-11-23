@@ -1,7 +1,9 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -49,7 +51,7 @@ func Tasks(limit int) ([]*Task, error) {
 		if err != nil {
 			return []*Task{}, err
 		}
-		
+
 		res = append(res, &t)
 	}
 
@@ -96,7 +98,7 @@ func UpdateTask(task *Task) error {
 
 // DeleteTask deletes a task by its ID
 func DeleteTask(id int64) error {
-	_, err :=DB.Exec("DELETE FROM scheduler WHERE id = ?", id)
+	_, err := DB.Exec("DELETE FROM scheduler WHERE id = ?", id)
 	if err != nil {
 		return err
 	}
@@ -122,4 +124,50 @@ func UpdateDate(next string, id int64) error {
 	}
 
 	return nil
+}
+
+//SEARCH
+
+// Tasks returns a list of tasks from the database
+func SearchTasks(search string, limit int) ([]*Task, error) {
+	var rows *sql.Rows
+	var err error
+
+	date, err := time.Parse("02.01.2006", search)
+	if err == nil{
+		search = date.Format("20060102")
+	}
+
+	like := "%" + search + "%"
+
+	if search == "" {
+		rows, err = DB.Query("SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT ?", limit)
+		if err != nil {
+			return []*Task{}, err
+		}
+	} else {
+		rows, err = DB.Query("SELECT id, date, title, comment, repeat FROM scheduler WHERE title LIKE ? OR comment LIKE ? OR date LIKE ? ORDER BY date LIMIT ?", like, like, like, limit)
+		if err != nil {
+			return []*Task{}, err
+		}
+	}
+
+	defer rows.Close()
+
+	res := []*Task{}
+	for rows.Next() {
+		t := Task{}
+		err := rows.Scan(&t.ID, &t.Date, &t.Title, &t.Comment, &t.Repeat)
+		if err != nil {
+			return []*Task{}, err
+		}
+
+		res = append(res, &t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }

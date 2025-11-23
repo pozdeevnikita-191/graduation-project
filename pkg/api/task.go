@@ -38,15 +38,18 @@ type TasksResp struct {
 	Tasks []*db.Task `json:"tasks"`
 }
 
-// tasksHandler — a handler for receiving a list of tasks
+// tasksHandler — a handler for receiving a list of tasks -----------------------------------
 func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	tasks, err := db.Tasks(50)
+
+	search := r.URL.Query().Get("search")
+
+	tasks, err := db.SearchTasks(search, 50)
 	if err != nil {
 		writeJson(w, map[string]string{"error": err.Error()}, http.StatusFailedDependency)
 		return
 	}
-
+	
 	apiTasks := make([]Task, len(tasks))
 	for i, t := range tasks {
 		apiTasks[i] = Task{
@@ -59,6 +62,7 @@ func tasksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJson(w, map[string][]Task{"tasks": apiTasks}, http.StatusOK)
 }
+//___________________________________________________________________________________________
 
 // getTaskHandler — a handler for getting a single task
 func getTaskHandler(w http.ResponseWriter, r *http.Request) {
